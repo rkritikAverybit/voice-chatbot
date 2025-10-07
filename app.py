@@ -11,33 +11,35 @@ import av
 
 from pydub import AudioSegment
 from pydub.utils import which
-import os
-import subprocess
+import os, urllib.request
 
 def ensure_ffmpeg():
-    """Ensure ffmpeg is available (for Streamlit Cloud & local)."""
+    """Ensure ffmpeg binary is available (works on Streamlit Cloud)."""
     if which("ffmpeg"):
         return which("ffmpeg")  # already available
 
-    print("⚙️ Downloading static ffmpeg build...")
     ffmpeg_dir = "/tmp/ffmpeg_bin"
-    ffmpeg_bin = f"{ffmpeg_dir}/ffmpeg"
+    ffmpeg_bin = os.path.join(ffmpeg_dir, "ffmpeg")
 
-    # Skip if already downloaded
     if not os.path.exists(ffmpeg_bin):
         os.makedirs(ffmpeg_dir, exist_ok=True)
         url = "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-linux-x64"
-        subprocess.run(["wget", "-q", "-O", ffmpeg_bin, url], check=False)
-        subprocess.run(["chmod", "+x", ffmpeg_bin], check=False)
+        try:
+            st.info("⬇️ Downloading ffmpeg binary (one-time setup)...")
+            urllib.request.urlretrieve(url, ffmpeg_bin)
+            os.chmod(ffmpeg_bin, 0o755)
+        except Exception as e:
+            st.error(f"❌ Failed to download ffmpeg: {e}")
+            return None
 
-    # Register ffmpeg path for pydub
     os.environ["PATH"] += os.pathsep + ffmpeg_dir
     AudioSegment.converter = ffmpeg_bin
-    print("✅ ffmpeg ready at", ffmpeg_bin)
+    st.success("✅ ffmpeg ready!")
     return ffmpeg_bin
 
 # Call at startup
 ensure_ffmpeg()
+
 
 
 try:
