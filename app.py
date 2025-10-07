@@ -264,7 +264,7 @@ def record_browser_audio_ui():
     st.markdown("#### Browser Voice Recorder")
     st.caption("Click Start to record, Stop when done, then press Transcribe.")
     #ctx = webrtc_streamer(key="webrtc-audio", mode=WebRtcMode.SENDONLY, audio_receiver_size=1024,
-                          media_stream_constraints={"audio":True,"video":False})
+                          #media_stream_constraints={"audio":True,"video":False})
     try:
         ctx = webrtc_streamer(
             key="webrtc-audio",
