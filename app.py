@@ -155,7 +155,8 @@ def text_to_speech(text:str, voice:Optional[str]=None)->Optional[str]:
     out = AUDIO_DIR / f"response_{ts}.mp3"
     try:
         if edge_tts and asyncio:
-            async def _run(): await edge_tts.Communicate(text, voice=voice, rate="-10%").save(str(out))
+            async def _run(): await edge_tts.Communicate(text, voice=voice, rate="-10%", pitch="-2Hz").save(str(out))
+
 
             try: asyncio.run(_run())
             except RuntimeError:
@@ -168,28 +169,46 @@ def text_to_speech(text:str, voice:Optional[str]=None)->Optional[str]:
     except Exception as e:
         st.error(f"TTS error: {e}"); st.session_state.conversation_state="idle"; return None
 
+from pydub import AudioSegment
 import re
 
 def stream_tts_response(text: str, voice: Optional[str] = None):
-    """Generate and play sentences one by one with natural pauses."""
-    # Split smartly: handles '.', '?', '!', line breaks
-    parts = re.split(r'(?<=[.!?])\s+', text.strip())
-    parts = [p.strip() for p in parts if p.strip()]
-    paths = []
+    """Generate combined audio (Edge TTS + gTTS fallback) and play once cleanly."""
+    st.session_state.conversation_state = "speaking"
 
-    for i, sentence in enumerate(parts):
-        # Add a natural pause hint to TTS
-        spoken_text = sentence + " ... " if i < len(parts) - 1 else sentence
-        path = text_to_speech(spoken_text, voice)
-        if path:
-            paths.append(path)
-            # Play sentence
-            autoplay_audio_html(path)
-            # Longer pause between sentences
-            time.sleep(1.2)
+    # Split text smartly by punctuation
+    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+    sentences = [s.strip() for s in sentences if s.strip()]
+    combined_audio = AudioSegment.silent(duration=300)  # small intro pause
+    temp_files = []
 
-    # Return all audio paths for reference
-    return paths
+    for sentence in sentences:
+        path = text_to_speech(sentence, voice)
+        if path and os.path.exists(path):
+            try:
+                seg = AudioSegment.from_file(path, format="mp3")
+                combined_audio += seg + AudioSegment.silent(duration=800)  # add pause between sentences
+                temp_files.append(path)
+            except Exception as e:
+                st.warning(f"Audio merge error: {e}")
+
+    # Export combined audio
+    final_path = AUDIO_DIR / f"response_combined_{int(time.time())}.mp3"
+    combined_audio.export(final_path, format="mp3")
+
+    # Play single audio cleanly
+    st.session_state.audio_response_path = str(final_path)
+    st.audio(str(final_path), format="audio/mp3")
+
+    # Optional: cleanup temp sentence clips
+    for f in temp_files:
+        try:
+            os.remove(f)
+        except:
+            pass
+
+    st.session_state.conversation_state = "idle"
+    return [str(final_path)]
 
 def transcribe_audio_bytes(raw_wav_bytes:bytes)->Optional[str]:
     if sr is None: st.error("SpeechRecognition not installed."); return None
