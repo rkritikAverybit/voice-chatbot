@@ -234,18 +234,53 @@ def stream_tts_response(text: str, voice: Optional[str] = None):
     st.session_state.conversation_state = "idle"
     return [str(final_path)]
 
-def transcribe_audio_bytes(raw_wav_bytes:bytes)->Optional[str]:
+import audioop
+
+def transcribe_audio_bytes(raw_wav_bytes: bytes) -> Optional[str]:
+    """Transcribe safely with auto-retry and silence detection."""
     if sr is None:
-        st.error("SpeechRecognition not installed."); return None
+        st.error("SpeechRecognition not installed.")
+        return None
+
     try:
-        r = sr.Recognizer()
+        # Detect silence first (avoid wasting API calls)
+        rms = audioop.rms(raw_wav_bytes, 2)
+        if rms < 150:
+            st.warning("🕊️ The recording seems too quiet. Try speaking louder or closer to the mic.")
+            return None
+
+        recognizer = sr.Recognizer()
+
+        # Save temporary wav
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-            tmp.write(raw_wav_bytes); tmp_path = tmp.name
-        with sr.AudioFile(tmp_path) as src:
-            audio = r.record(src); text = r.recognize_google(audio, language="en-US")
-        os.unlink(tmp_path); return text
+            tmp.write(raw_wav_bytes)
+            tmp_path = tmp.name
+
+        text = None
+        for attempt in range(3):  # retry up to 3 times
+            try:
+                with sr.AudioFile(tmp_path) as src:
+                    audio = recognizer.record(src)
+                    text = recognizer.recognize_google(audio, language="en-US")
+                break
+            except sr.UnknownValueError:
+                st.warning("🤔 Could not understand the audio. Try again clearly.")
+                break
+            except sr.RequestError:
+                st.info(f"🌐 Retrying transcription... ({attempt+1}/3)")
+                time.sleep(1)
+                continue
+
+        os.unlink(tmp_path)
+        if text:
+            return text.strip()
+        else:
+            return None
+
     except Exception as e:
-        st.error(f"Transcription error: {e}"); return None
+        st.warning(f"⚠️ Transcription issue: {e}")
+        return None
+
 
 def audio_upload_to_text(uploaded)->Optional[str]:
     if sr is None:
