@@ -9,19 +9,35 @@ from streamlit_webrtc import webrtc_streamer, WebRtcMode
 import av
 
 
-from pydub.utils import which
 from pydub import AudioSegment
+from pydub.utils import which
+import os
+import subprocess
 
-# Ensure ffmpeg is available (for Streamlit Cloud)
-if not which("ffmpeg"):
-    import os
-    import subprocess
-    ffmpeg_url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
-    os.system(f"wget -q {ffmpeg_url} -O /tmp/ffmpeg.tar.xz")
-    os.system("tar -xf /tmp/ffmpeg.tar.xz -C /tmp")
-    ffmpeg_path = next(p for p in os.listdir('/tmp') if p.startswith('ffmpeg') and os.path.isdir(f'/tmp/{p}'))
-    os.environ["PATH"] += os.pathsep + f"/tmp/{ffmpeg_path}"
-    AudioSegment.converter = f"/tmp/{ffmpeg_path}/ffmpeg"
+def ensure_ffmpeg():
+    """Ensure ffmpeg is available (for Streamlit Cloud & local)."""
+    if which("ffmpeg"):
+        return which("ffmpeg")  # already available
+
+    print("⚙️ Downloading static ffmpeg build...")
+    ffmpeg_dir = "/tmp/ffmpeg_bin"
+    ffmpeg_bin = f"{ffmpeg_dir}/ffmpeg"
+
+    # Skip if already downloaded
+    if not os.path.exists(ffmpeg_bin):
+        os.makedirs(ffmpeg_dir, exist_ok=True)
+        url = "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-linux-x64"
+        subprocess.run(["wget", "-q", "-O", ffmpeg_bin, url], check=False)
+        subprocess.run(["chmod", "+x", ffmpeg_bin], check=False)
+
+    # Register ffmpeg path for pydub
+    os.environ["PATH"] += os.pathsep + ffmpeg_dir
+    AudioSegment.converter = ffmpeg_bin
+    print("✅ ffmpeg ready at", ffmpeg_bin)
+    return ffmpeg_bin
+
+# Call at startup
+ensure_ffmpeg()
 
 
 try:
