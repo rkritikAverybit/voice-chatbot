@@ -155,7 +155,8 @@ def text_to_speech(text:str, voice:Optional[str]=None)->Optional[str]:
     out = AUDIO_DIR / f"response_{ts}.mp3"
     try:
         if edge_tts and asyncio:
-            async def _run(): await edge_tts.Communicate(text, voice=voice).save(str(out))
+            async def _run(): await edge_tts.Communicate(text, voice=voice, rate="-10%").save(str(out))
+
             try: asyncio.run(_run())
             except RuntimeError:
                 import asyncio as _a; loop=_a.new_event_loop(); loop.run_until_complete(_run()); loop.close()
@@ -167,14 +168,27 @@ def text_to_speech(text:str, voice:Optional[str]=None)->Optional[str]:
     except Exception as e:
         st.error(f"TTS error: {e}"); st.session_state.conversation_state="idle"; return None
 
-def stream_tts_response(text:str, voice:Optional[str]=None):
-    sentences = [s.strip()+'.' for s in text.split('.') if s.strip()]
-    paths=[]
-    for i,s in enumerate(sentences):
-        p = text_to_speech(s, voice); 
-        if p: 
-            paths.append(p); autoplay_audio_html(p)
-            if i < len(sentences)-1: time.sleep(0.35)
+import re
+
+def stream_tts_response(text: str, voice: Optional[str] = None):
+    """Generate and play sentences one by one with natural pauses."""
+    # Split smartly: handles '.', '?', '!', line breaks
+    parts = re.split(r'(?<=[.!?])\s+', text.strip())
+    parts = [p.strip() for p in parts if p.strip()]
+    paths = []
+
+    for i, sentence in enumerate(parts):
+        # Add a natural pause hint to TTS
+        spoken_text = sentence + " ... " if i < len(parts) - 1 else sentence
+        path = text_to_speech(spoken_text, voice)
+        if path:
+            paths.append(path)
+            # Play sentence
+            autoplay_audio_html(path)
+            # Longer pause between sentences
+            time.sleep(1.2)
+
+    # Return all audio paths for reference
     return paths
 
 def transcribe_audio_bytes(raw_wav_bytes:bytes)->Optional[str]:
