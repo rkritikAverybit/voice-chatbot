@@ -282,7 +282,6 @@ def text_to_speech(text, voice=None):
 
 # ---------- Streaming TTS (Sentence by Sentence) ----------
 def stream_tts_response(text, voice=None):
-    st.session_state.is_speaking = True
     """Stream audio response sentence by sentence"""
     sentences = [s.strip() + '.' for s in text.split('.') if s.strip()]
     audio_paths = []
@@ -302,7 +301,6 @@ def stream_tts_response(text, voice=None):
             if i < len(sentences) - 1:
                 time.sleep(0.5)
     
-    st.session_state.is_speaking = False
     return audio_paths
 
 # ---------- Enhanced Speech to Text ----------
@@ -340,59 +338,48 @@ def speech_to_text_microphone(timeout=LISTEN_TIMEOUT_DEFAULT, phrase_time_limit=
 
 # ---------- Continuous Listening Mode ----------
 def continuous_listening():
-    """Improved continuous voice interaction mode with cooldown and feedback prevention"""
+    """Continuous voice interaction mode"""
     if sr is None:
         st.error("❌ speech_recognition not installed.")
         return
-
+    
     r = sr.Recognizer()
     r.energy_threshold = 4000
     r.dynamic_energy_threshold = True
-    st.session_state.is_speaking = False
-
+    
     st.info("🎤 **Continuous mode active** - Speak anytime!")
-
+    
     with sr.Microphone() as source:
         r.adjust_for_ambient_noise(source, duration=1)
-        silence_count = 0
-
+        
         while st.session_state.continuous_listening:
             try:
-                if st.session_state.is_speaking:
-                    time.sleep(0.5)
-                    continue
-
                 st.session_state.conversation_state = "listening"
-                audio = r.listen(source, timeout=3, phrase_time_limit=12)
-
+                audio = r.listen(source, timeout=2, phrase_time_limit=15)
+                
                 st.session_state.conversation_state = "thinking"
-                text = r.recognize_google(audio, language="en-US").strip()
-
-                if not text:
-                    silence_count += 1
-                    if silence_count >= 3:
-                        st.info("🕊️ No speech detected for a while. Stopping continuous mode.")
-                        st.session_state.continuous_listening = False
-                    continue
-
-                silence_count = 0
-                st.success(f"💬 You said: {text}")
-
-                reply = get_ai_reply(text)
-
-                st.session_state.is_speaking = True
-                audio_paths = stream_tts_response(reply)
-                st.session_state.is_speaking = False
-
-                time.sleep(2)
-                st.session_state.conversation_state = "idle"
-
+                text = r.recognize_google(audio, language="en-US")
+                
+                if text and len(text.strip()) > 0:
+                    st.success(f"💬 You said: {text}")
+                    
+                    # Get AI response
+                    reply = get_ai_reply(text)
+                    
+                    # Speak response
+                    audio_paths = stream_tts_response(reply)
+                    if audio_paths:
+                        st.session_state.audio_response_path = audio_paths[-1]
+                    
+                    st.session_state.conversation_state = "idle"
+                    
             except sr.WaitTimeoutError:
                 continue
             except Exception as e:
-                st.warning(f"⚠️ Listening error: {e}")
+                st.warning(f"⚠️ Error: {e}")
                 time.sleep(1)
 
+# ---------- Upload Audio to Text ----------
 def audio_upload_to_text(uploaded):
     """Convert uploaded audio to text"""
     if sr is None:
@@ -571,38 +558,22 @@ with col2:
         label_visibility="collapsed"
     )
     
-
-
-    # ✅ Prevent repeated processing of the same uploaded file
     if uploaded_audio:
-        # Hash file buffer to detect same file reupload
-        import hashlib
-        file_hash = hashlib.md5(uploaded_audio.getbuffer()).hexdigest()
-
-        # Process only if new or changed file
-        if st.session_state.get("last_uploaded_hash") != file_hash:
-            st.session_state.last_uploaded_hash = file_hash
-
-            with st.spinner("🎧 Processing your voice..."):
-                text = audio_upload_to_text(uploaded_audio)
-
-            if text:
-                st.success(f"✅ Transcribed: *{text}*")
-
-                with st.spinner("💭 Reflecting..."):
-                    reply = get_ai_reply(text)
-
-                with st.spinner("🔊 Responding..."):
-                    audio_paths = stream_tts_response(reply)
-                    if audio_paths:
-                        st.session_state.audio_response_path = audio_paths[-1]
-
-                st.rerun()
-        else:
-            st.info("🪷 This audio has already been processed. Upload a new one to continue.")
-
-
-
+        with st.spinner("🎧 Processing your voice..."):
+            text = audio_upload_to_text(uploaded_audio)
+        
+        if text:
+            st.success(f"✅ Transcribed: *{text}*")
+            
+            with st.spinner("💭 Reflecting..."):
+                reply = get_ai_reply(text)
+            
+            with st.spinner("🔊 Responding..."):
+                audio_paths = stream_tts_response(reply)
+                if audio_paths:
+                    st.session_state.audio_response_path = audio_paths[-1]
+            
+            st.rerun()
     
     st.markdown("---")
     
