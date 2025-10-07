@@ -1,0 +1,27 @@
+# Core framework
+streamlit>=1.37.0
+
+# OpenAI-compatible client for OpenRouter API
+openai>=1.40.0
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# Speech-to-text (Google STT)
+SpeechRecognition>=3.10.0
+
+# Text-to-speech (fallback to gTTS if Edge TTS fails)
+gTTS>=2.5.0
+
+# Microsoft Edge TTS voices
+edge-tts>=6.1.0
+
+# Audio handling
+pydub>=0.25.1
+
+# Utilities
+requests>=2.31.0
+
+# Optional: advanced STT (local/offline)
+# vosk>=0.3.45
+# faster-whisper>=1.0.1
