@@ -263,8 +263,23 @@ def audio_upload_to_text(uploaded)->Optional[str]:
 def record_browser_audio_ui():
     st.markdown("#### Browser Voice Recorder")
     st.caption("Click Start to record, Stop when done, then press Transcribe.")
-    ctx = webrtc_streamer(key="webrtc-audio", mode=WebRtcMode.SENDONLY, audio_receiver_size=1024,
+    #ctx = webrtc_streamer(key="webrtc-audio", mode=WebRtcMode.SENDONLY, audio_receiver_size=1024,
                           media_stream_constraints={"audio":True,"video":False})
+    try:
+        ctx = webrtc_streamer(
+            key="webrtc-audio",
+            mode=WebRtcMode.SENDONLY,
+            audio_receiver_size=1024,
+            media_stream_constraints={"audio": True, "video": False},
+        )
+    except AttributeError as e:
+        # Handle known streamlit-webrtc shutdown bug
+        st.warning("⚠️ Browser mic stream stopped unexpectedly. Please refresh or restart recording.")
+        ctx = None
+    except Exception as e:
+        st.error(f"🎤 Mic setup issue: {e}")
+        ctx = None
+
     if ctx and ctx.state.playing:
         frames = ctx.audio_receiver.get_frames(timeout=1)
         for f in frames:
