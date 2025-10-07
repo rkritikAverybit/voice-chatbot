@@ -1,25 +1,21 @@
-# --- Core Framework ---
+# Requirements for Streamlit Cloud
 streamlit>=1.37.0
-
-# --- OpenAI-compatible client for OpenRouter API ---
 openai>=1.40.0
 
-# --- Environment Variable Management ---
-python-dotenv>=1.0.0
+# Browser mic recording on Streamlit Cloud
+streamlit-webrtc>=0.47.1
+av>=10.0.0
 
-# --- Speech-to-Text (Microphone + Audio Upload) ---
+# Speech-to-Text (file-based; no PyAudio needed)
 SpeechRecognition>=3.10.0
 
-# --- Text-to-Speech (Edge TTS + gTTS Fallback) ---
+# Text-to-Speech
 edge-tts>=6.1.0
 gTTS>=2.5.0
 
-# --- Audio Processing ---
+# Audio utils
 pydub>=0.25.1
 
-# --- Utilities ---
+# Utilities
 requests>=2.31.0
-
-# --- Optional (for advanced STT/offline mode) ---
-# vosk>=0.3.45
-# faster-whisper>=1.0.1
+python-dotenv>=1.0.0
